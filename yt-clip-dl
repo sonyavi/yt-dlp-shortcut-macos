@@ -1,0 +1,109 @@
+#!/bin/zsh
+# Универсальная загрузка YouTube со ссылкой из буфера обмена
+# Пресеты: iphone, avc, vp9, av1, hevc, hevc-1080, best
+# Всегда вырезаются спонсорские сегменты (SponsorBlock)
+
+set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"yt-dlp\""; }
+
+find_bin() {
+  local name="$1" binpath
+  if binpath="$(command -v "$name" 2>/dev/null)"; then echo "$binpath"; return 0; fi
+  if command -v brew >/dev/null 2>&1; then
+    local bp; bp="$(brew --prefix 2>/dev/null || true)"
+    for p in "$bp/bin/$name" "$bp/opt/$name/bin/$name"; do [[ -x "$p" ]] && { echo "$p"; return 0; }; done
+  fi
+  for p in "/opt/homebrew/bin/$name" "/usr/local/bin/$name" "/usr/local/opt/$name/bin/$name" "/usr/bin/$name"
+  do [[ -x "$p" ]] && { echo "$p"; return 0; }; done
+  return 1
+}
+
+# ---- параметры запуска ----
+preset="${1:-iphone}"                 # по умолчанию — iphone
+url="${2:-$(pbpaste)}"
+out_dir="$HOME/Downloads/YouTube"
+mkdir -p "$out_dir"
+
+if [[ -z "${url}" || "${url}" != http* ]]; then
+  notify "В буфере/аргументе нет корректного URL"
+  echo "Ожидался http/https URL. Получено: '${url:-<empty>}'" >&2
+  exit 2
+fi
+
+YTDLP="$(find_bin yt-dlp || true)"
+FFMPEG="$(find_bin ffmpeg || true)"
+if [[ -z "$YTDLP" ]]; then
+  notify "yt-dlp не найден. brew install yt-dlp"
+  echo "yt-dlp не найден. Установите: brew install yt-dlp" >&2
+  exit 3
+fi
+
+# ---- форматы по пресетам ----
+merge_fmt="mkv"
+case "$preset" in
+  iphone)
+    fmt='bestvideo[vcodec^=avc1][height<=1080][fps<=60]+bestaudio[acodec^=mp4a]/best[ext=mp4]'
+    merge_fmt='mp4'
+    ;;
+  avc)
+    fmt='bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]'
+    merge_fmt='mp4'
+    ;;
+  vp9)
+    fmt='bestvideo[vcodec=vp9]+bestaudio/best'
+    merge_fmt='mkv'
+    ;;
+  av1)
+    fmt='bestvideo[vcodec^=av01]+bestaudio/best'
+    merge_fmt='mkv'
+    ;;
+  hevc)
+    fmt='bestvideo[vcodec^=hev1]+bestaudio/best'
+    merge_fmt='mp4'
+    ;;
+  hevc-1080)
+    fmt='bestvideo[vcodec^=hev1][height<=1080][fps<=60]+bestaudio/best'
+    merge_fmt='mp4'
+    ;;
+  best|*)
+    fmt='bv*+ba/b'
+    merge_fmt='mkv'
+    ;;
+esac
+
+out_tpl="$out_dir/%(uploader|Unknown)s/%(upload_date>%Y-%m-%d)s - %(title).200B [%(id)s].%(ext)s"
+
+notify "Загрузка началась…"
+
+common_opts=(
+  -f "$fmt"
+  --merge-output-format "$merge_fmt"
+  --embed-metadata --embed-chapters --embed-thumbnail
+  --sponsorblock-remove "sponsor,selfpromo,interaction,music_offtopic"
+  --retries infinite --fragment-retries infinite --retry-sleep linear=1::2
+  --concurrent-fragments 10
+  -o "$out_tpl"
+)
+
+if [[ -n "$FFMPEG" ]]; then
+  common_opts+=( --ffmpeg-location "$FFMPEG" )
+else
+  notify "ffmpeg не найден — объединение дорожек может быть недоступно"
+  echo "ffmpeg не найден. Рекомендуется: brew install ffmpeg" >&2
+fi
+
+set +e
+"$YTDLP" "${common_opts[@]}" "$url"
+rc=$?
+set -e
+
+if [[ $rc -eq 0 ]]; then
+  notify "Загрузка завершена"
+else
+  notify "Ошибка, код $rc"
+  echo "yt-dlp завершился с кодом $rc" >&2
+fi
+
+exit $rc
