@@ -30,6 +30,8 @@ brew install yt-dlp ffmpeg
 yt-dlp-shortcut-macos/
 ├── yt-clip-dl             # основной скрипт (zsh)
 ├── README.md              # документация
+└── shortcuts/
+    └── YouTube_DL.shortcut # экспортированный Shortcut (опционально)
 ```
 
 ---
