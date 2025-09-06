@@ -12,7 +12,7 @@
 
 [![Install via iCloud](https://img.shields.io/badge/Install%20via%20iCloud-Shortcut-blue?logo=icloud)](https://www.icloud.com/shortcuts/baa81804fcf64011bab7a1a3c0ad22f4)
 
-> Если iCloud-ссылка недоступна, можно импортировать файл из `shortcuts/YouTube_DL.shortcut` (см. раздел «Альтернатива» ниже).
+> Если iCloud-ссылка https://www.icloud.com/shortcuts/baa81804fcf64011bab7a1a3c0ad22f4 недоступна, можно импортировать файл из `shortcuts/YouTube_DL.shortcut` (см. раздел «Альтернатива» ниже).
 
 ---
 
